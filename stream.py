@@ -21,13 +21,20 @@
 from __future__ import annotations
 import asyncio
 import io
-import picamera
 import logging
 from threading import Condition
+import weakref
+import sys
+import concurrent.futures
+import signal
+import os
+from types import FrameType
+
+from typing import Optional
+
+import picamera
 from aiohttp import web
 import aiohttp
-import weakref
-import concurrent.futures
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -161,4 +168,44 @@ class Server:
         for ws in set(app['websockets']):
             await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY, message='Server shutdown')
 
+    async def idle(self):
+        self._idled = True
+
+        for sig in (signal.SIGINT, signal.SIGABRT, signal.SIGTERM):
+            signal.signal(sig, self._reset_idle)
+
+        while self._idled:
+            await asyncio.sleep(1)
+
+    def _reset_idle(self, signal_: signal.Signals, _frame_type: FrameType) -> None:
+        if not self._idled:
+            logger.debug('Got signal %s, killing...', signal_)
+            os.kill(os.getpid(), signal.SIGKILL)
+        else:
+            logger.debug('Got signal %s, stopping...', signal_)
+            self._idled = False
+
+    async def stop(self) -> None:
+        await self.site.stop()
+        await self.runner.cleanup()
+
+
+def get_argument(arg: str, default: Optional[str]) -> Optional[str]:
+    try:
+        index = sys.argv.index(arg)
+        return sys.argv[index + 1]
+    except (ValueError, IndexError):
+        pass
+    return default
+
+
+async def main():
+    server = Server(get_argument('--host', 'localhost'), int(get_argument('--port', '8080')))
+    await server.start()
+    await server.idle()
+    await server.stop()
+
+
+if __name__ == '__main__':
+    main()
 
