@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Test stream</title>
+    <meta charset="UTF-8">
+    <title>Test stream</title>
 </head>
 <script>
     if (window.plugin === undefined) {
         window.plugin = function() {};
     }
     window.plugin.pi_stream = function() {};
-    window.plugin.pi_stream.websocket = function() {};
+    window.plugin.pi_stream.websocket = null;
     window.plugin.pi_stream.ws = function() {};
 
     let sendMessage = function (message) {
@@ -43,10 +43,9 @@
 
     window.plugin.pi_stream.ws.onMessage = function (evt) {
         logger.info('[WS] Got data');
-        let img = document.getElementById('stream_pic');
 
-        img.src = 'data:image/jpeg;base64,' + hexToBase64(evt.data);
-
+        let image = document.getElementById('stream_pic');
+        image.src = 'data:image/jepg;base64,'+ evt.data;
     }
 
     window.plugin.pi_stream.ws.onError = function (evt) {
@@ -95,13 +94,14 @@
     }
 
 </script>
-<body>
+<body style="text-align: center">
 
-<label for="websocket_url">Url: </label><input id="websocket_url" width="50%" value="ws://127.0.0.1">
-
+<label for="websocket_url">Url: </label><input id="websocket_url" width="50%" value="ws://192.168.6.11:8080/data">
+<br />
 <a onclick="connect();">connect</a><br />
 <a onclick="disconnect();">disconnect</a>
 
+<br />
 <img id="stream_pic" alt="Stream camera"/>
 
 </body>

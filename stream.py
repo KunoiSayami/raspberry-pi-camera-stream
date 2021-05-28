@@ -20,6 +20,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import asyncio
+import base64
 import io
 import logging
 from threading import Condition
@@ -80,7 +81,7 @@ class WsCoroutine:
         while True:
             with self.writer.condition:
                 self.writer.condition.wait()
-                await self.ws.send_bytes(self.writer.frame)
+                await self.ws.send_str(base64.b64encode(self.writer.frame).decode())
             if self.stop_event.is_set():
                 return
             await asyncio.sleep(0.5)
@@ -105,14 +106,14 @@ class Server:
         self.website['websockets'] = weakref.WeakSet()
         self._idled = False
 
-    async def enable_camera(self) -> web.Response:
+    async def enable_camera(self, _request: web.Request) -> web.Response:
         async with self.camera_lock:
             if self.camera is not None:
                 return web.json_response(dict(status=400, body="camera already enabled"))
             self.camera = BufferWriter.new()
             return web.json_response(dict(status=200, body="OK"))
 
-    async def disable_camera(self) -> web.Response:
+    async def disable_camera(self, _request: web.Request) -> web.Response:
         async with self.camera_lock:
             if self.camera is None:
                 return web.json_response(dict(status=400, body="camera not enabled"))
@@ -120,10 +121,15 @@ class Server:
             self.camera = None
             return web.json_response(dict(status=200, body="OK"))
 
-    async def query_camera(self) -> web.Response:
-        return web.json_response(dict(status=200, body="enabled" if self.camera is None else "disabled"))
+    @staticmethod
+    async def hello(_request: web.Request) -> web.Response:
+        return web.json_response(dict(status=200))
+
+    async def query_camera(self, _request: web.Request) -> web.Response:
+        return web.json_response(dict(status=200, body="enabled" if self.camera else "disabled"))
 
     async def start(self) -> None:
+        self.website.router.add_get('/', self.hello)
         self.website.router.add_get('/enable', self.enable_camera)
         self.website.router.add_get('/disable', self.disable_camera)
         self.website.router.add_get('/query', self.query_camera)
@@ -132,7 +138,7 @@ class Server:
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, self.bind, self.port)
         await self.site.start()
-        logger.info('Listen websocket on ws%s://%s:%d%s', self.bind, self.port)
+        logger.info('Listen websocket on ws://%s:%d/data', self.bind, self.port)
 
     async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse()
@@ -200,12 +206,17 @@ def get_argument(arg: str, default: Optional[str]) -> Optional[str]:
 
 
 async def main():
-    server = Server(get_argument('--host', 'localhost'), int(get_argument('--port', '8080')))
+    server = Server(get_argument('--host', '0.0.0.0'), int(get_argument('--port', '8080')))
     await server.start()
     await server.idle()
     await server.stop()
 
 
 if __name__ == '__main__':
-    main()
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.run_until_complete(asyncio.sleep(0.25))
+    loop.close()
 
