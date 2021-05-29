@@ -12,6 +12,8 @@
     window.plugin.pi_stream.websocket = null;
     window.plugin.pi_stream.ws = function() {};
 
+    const default_location = localStorage.getItem('server') || 'ws://127.0.0.1:8080';
+
     let sendMessage = function (message) {
         if (window.plugin.pi_stream.websocket === null)
             return ;
@@ -37,10 +39,11 @@
         logger.info('[WS] Connected');
     }
 
+    // TODO: use client base64 instead of server send base64
     window.plugin.pi_stream.ws.onMessage = function (evt) {
         logger.info('[WS] Got data');
 
-        let image = document.getElementById('stream_pic');
+        const image = document.getElementById('stream_pic');
         image.src = 'data:image/jpeg;base64,'+ evt.data;
     }
 
@@ -71,8 +74,9 @@
     }
 
     function connect() {
-        let url = document.getElementById('websocket_url').value;
+        const url = document.getElementById('websocket_url').value;
         create_websocket_connect(url);
+        localStorage.setItem('server', url);
     }
 
     function disconnect() {
@@ -80,7 +84,7 @@
             console.error('Please connect websocket first');
             return ;
         }
-        //sendMessage('close');
+        sendMessage('close');
         try {
             window.plugin.pi_stream.websocket.close();
         } catch (e) {
@@ -89,10 +93,13 @@
         window.plugin.pi_stream.websocket = null;
     }
 
+    document.addEventListener("DOMContentLoaded", function(_event) {
+        document.getElementById('websocket_url').value = default_location;
+    });
 </script>
 <body style="text-align: center">
 
-<label for="websocket_url">Url: </label><input id="websocket_url" width="50%" value="ws://192.168.6.11:8080/data">
+<label for="websocket_url">Url: </label><input id="websocket_url" width="50%">
 <br />
 <a onclick="connect();">connect</a>
 <br />

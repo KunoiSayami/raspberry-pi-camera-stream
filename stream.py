@@ -81,9 +81,11 @@ class WsCoroutine:
         while True:
             with self.writer.condition:
                 self.writer.condition.wait()
+                # TODO: Send binary instead of send base64
                 await self.ws.send_str(base64.b64encode(self.writer.frame).decode())
             if self.stop_event.is_set():
                 return
+            await asyncio.sleep(.01)
 
     def req_stop(self):
         logger.debug('Request stop')
@@ -100,10 +102,10 @@ class Server:
         self.bind = host
         self.port = port
         self.site = None
-        self._fetched = False
         self.runner = web.AppRunner(self.website)
         self.website['websockets'] = weakref.WeakSet()
         self._idled = False
+        self.frame = None
 
     async def enable_camera(self, _request: web.Request) -> web.Response:
         async with self.camera_lock:
@@ -117,8 +119,17 @@ class Server:
             if self.camera is None:
                 return web.json_response(dict(status=400, body="camera not enabled"))
             self.camera.close()
+            self.frame = self.camera.frame
             self.camera = None
             return web.json_response(dict(status=200, body="OK"))
+
+    async def get_last_frame(self, _request: web.Request) -> web.Response:
+        obj = self.frame
+        if self.camera is not None:
+            obj = self.camera.frame
+        if obj is not None:
+            obj = base64.b64encode(obj).decode()
+        return web.json_response(dict(status=200, frame=obj))
 
     @staticmethod
     async def hello(_request: web.Request) -> web.Response:
@@ -133,6 +144,7 @@ class Server:
         self.website.router.add_get('/disable', self.disable_camera)
         self.website.router.add_get('/query', self.query_camera)
         self.website.router.add_get('/data', self.handle_websocket)
+        self.website.router.add_get('/get_frame', self.get_last_frame)
         self.website.on_shutdown.append(self.handle_web_shutdown)
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, self.bind, self.port)
@@ -163,8 +175,9 @@ class Server:
                 future.exception(timeout=1)
             except concurrent.futures.TimeoutError:
                 pass
-            except:
+            except Exception:
                 logger.exception('Got exception while process coroutine')
+        future.cancel()
         logger.info('websocket connection closed')
         return ws
 
@@ -218,4 +231,3 @@ if __name__ == '__main__':
     loop.run_until_complete(main())
     loop.run_until_complete(asyncio.sleep(0.25))
     loop.close()
-
