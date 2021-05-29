@@ -84,7 +84,6 @@ class WsCoroutine:
                 await self.ws.send_str(base64.b64encode(self.writer.frame).decode())
             if self.stop_event.is_set():
                 return
-            await asyncio.sleep(0.5)
 
     def req_stop(self):
         logger.debug('Request stop')

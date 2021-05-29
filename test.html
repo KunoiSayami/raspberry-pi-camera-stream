@@ -33,10 +33,6 @@
         console.info(text);
     }
 
-    function hexToBase64(str) {
-        return btoa(String.fromCharCode.apply(null, str.replace(/\r|\n/g, "").replace(/([\da-fA-F]{2}) ?/g, "0x$1 ").replace(/ +$/, "").split(" ")));
-    }
-
     window.plugin.pi_stream.ws.onOpen = function (_evt) {
         logger.info('[WS] Connected');
     }
@@ -45,7 +41,7 @@
         logger.info('[WS] Got data');
 
         let image = document.getElementById('stream_pic');
-        image.src = 'data:image/jepg;base64,'+ evt.data;
+        image.src = 'data:image/jpeg;base64,'+ evt.data;
     }
 
     window.plugin.pi_stream.ws.onError = function (evt) {
@@ -98,7 +94,8 @@
 
 <label for="websocket_url">Url: </label><input id="websocket_url" width="50%" value="ws://192.168.6.11:8080/data">
 <br />
-<a onclick="connect();">connect</a><br />
+<a onclick="connect();">connect</a>
+<br />
 <a onclick="disconnect();">disconnect</a>
 
 <br />
