@@ -110,14 +110,14 @@ class Server:
     async def enable_camera(self, _request: web.Request) -> web.Response:
         async with self.camera_lock:
             if self.camera is not None:
-                return web.json_response(dict(status=400, body="camera already enabled"))
+                return web.json_response(dict(status=400, body="camera already enabled"), status=400)
             self.camera = BufferWriter.new()
             return web.json_response(dict(status=200, body="OK"))
 
     async def disable_camera(self, _request: web.Request) -> web.Response:
         async with self.camera_lock:
             if self.camera is None:
-                return web.json_response(dict(status=400, body="camera not enabled"))
+                return web.json_response(dict(status=400, body="camera not enabled"), status=400)
             self.camera.close()
             self.frame = self.camera.frame
             self.camera = None
