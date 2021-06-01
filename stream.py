@@ -136,7 +136,7 @@ class Server:
         return web.json_response(dict(status=200))
 
     async def query_camera(self, _request: web.Request) -> web.Response:
-        return web.json_response(dict(status=200, body="enabled" if self.camera else "disabled"))
+        return web.json_response(dict(status=200, enabled=bool(self.camera)))
 
     async def start(self) -> None:
         self.website.router.add_get('/', self.hello)
